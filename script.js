@@ -763,7 +763,7 @@
         headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY },
         body: JSON.stringify(Object.assign({
           event: event, sessionId: sessionId, pageUrl: location.href, pageTitle: document.title,
-          referrer: document.referrer, userAgent: navigator.userAgent, origen: CFG.origin
+          referrer: document.referrer, userAgent: navigator.userAgent, landingPage: CFG.origin
         }, extra || {})),
         keepalive: true
       }).catch(() => {});
