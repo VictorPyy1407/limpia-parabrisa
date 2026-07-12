@@ -732,6 +732,34 @@
         productName: CFG.name, productPrice: CFG.price, revenue: payload.value
       });
     }
+    
+    // Tracking para Meta Pixel
+    if (typeof window.fbq === 'function') {
+      const metaParams = {
+        content_name: CFG.name,
+        content_type: 'product',
+        value: payload.value || CFG.price,
+        currency: CFG.currency
+      };
+      
+      if (event === 'view_content') {
+        window.fbq('track', 'ViewContent', metaParams);
+      } else if (event === 'begin_checkout') {
+        metaParams.quantity = state.qty;
+        window.fbq('track', 'InitiateCheckout', metaParams);
+      } else if (event === 'form_submitted') {
+        metaParams.quantity = state.qty;
+        window.fbq('track', 'Lead', metaParams);
+      } else if (event === 'purchase') {
+        metaParams.quantity = params.quantity || state.qty;
+        if (params.transaction_id) {
+          window.fbq('track', 'Purchase', metaParams, { eventID: params.transaction_id });
+        } else {
+          window.fbq('track', 'Purchase', metaParams);
+        }
+      }
+    }
+    
     // console para depurar sin analytics conectado
     if (params.__debug) console.log('[track]', event, payload);
   }
@@ -777,6 +805,19 @@
     window.addEventListener('pagehide', () => { clearInterval(hb); send('leave'); });
   }
 
+  /* ---------- Meta Pixel Helper & Init ---------- */
+  function isConfigured(value) {
+    return Boolean(value) && !/^(PEGAR_AQUI|G-XXXX|TU_|YOUR_|XXXX)/i.test(value);
+  }
+
+  function initMetaPixel() {
+    if (!isConfigured(CFG.metaPixelId)) return;
+    if (window.fbq) return; // ya inicializado desde el <head>; esto queda solo como respaldo
+    !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
+    window.fbq('init', CFG.metaPixelId);
+    window.fbq('track', 'PageView');
+  }
+
   /* ---------- init ---------- */
   function init() {
     paintStaticPrices();
@@ -804,6 +845,7 @@
     initConfigPanel();
     initScrollDepth();
     initVisitorTracking();
+    initMetaPixel();
     track('view_content');
   }
 

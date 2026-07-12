@@ -15,6 +15,7 @@ const PRODUCT_CONFIG = {
   price: 140000,
   oldPrice: 199000,
   currency: "PYG",
+  metaPixelId: "2412226475899711",
 
   // Imágenes — reemplazá estos archivos por tus fotos reales (mismo nombre) en la carpeta images/
   images: {
