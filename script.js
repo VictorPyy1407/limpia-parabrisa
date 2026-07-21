@@ -57,6 +57,7 @@
     $('#midPrice').textContent = price;
     $('#finalPrice').textContent = price;
     $('#smPrice').textContent = price;
+    const smBtn = $('#smBtnPrice'); if (smBtn) smBtn.textContent = price;
     $('#sumUnit').textContent = price;
   }
 
@@ -395,13 +396,15 @@
   function initScrollUI() {
     const sticky = $('#stickyMobile');
     const top = $('#backToTop');
-    const pedido = $('#pedido');
     const onScroll = () => {
       const y = window.scrollY;
-      const nearForm = pedido.getBoundingClientRect().top < window.innerHeight * 0.9;
-      if (features.stickyMobileBar) sticky.classList.toggle('show', y > 620 && !nearForm && window.innerWidth <= 640);
+      // La barra de compra queda siempre visible (mobile y desktop) al bajar del hero.
+      // Solo se oculta mientras el checkout está abierto para no taparlo.
+      const checkoutOpen = $('#checkoutModal').classList.contains('show') || $('#success').classList.contains('show');
+      if (features.stickyMobileBar) sticky.classList.toggle('show', y > 480 && !checkoutOpen);
       if (features.backToTop) top.classList.toggle('show', y > 800);
     };
+    window.__updateStickyBar = onScroll;
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', onScroll);
     top.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
@@ -414,6 +417,7 @@
     document.body.classList.add('no-scroll');
     if (window.__loadLazyIn) window.__loadLazyIn($('#checkoutModal'));
     track('begin_checkout');
+    if (window.__updateStickyBar) window.__updateStickyBar();
     setTimeout(() => { const f = $('input[name="nombre"]'); if (f) f.focus({ preventScroll: true }); }, 250);
   }
   function closeCheckout() {
@@ -421,6 +425,7 @@
     if (!$('#success').classList.contains('show') && !$('#mapModal').classList.contains('show')) {
       document.body.classList.remove('no-scroll');
     }
+    if (window.__updateStickyBar) window.__updateStickyBar();
   }
   function initCTAs() {
     $$('[data-cta]').forEach((b) => b.addEventListener('click', () => {
@@ -657,12 +662,14 @@
     s.classList.add('show');
     s.scrollTop = 0;
     document.body.classList.add('no-scroll');
+    if (window.__updateStickyBar) window.__updateStickyBar();
   }
   function initConfirmFlow() {
     $('#openConfirm').addEventListener('click', confirmAndSubmit);
     $('#backHome').addEventListener('click', () => {
       $('#success').classList.remove('show');
       document.body.classList.remove('no-scroll');
+      if (window.__updateStickyBar) window.__updateStickyBar();
       window.scrollTo({ top: 0, behavior: 'smooth' });
       // reset del formulario
       $('#orderForm').reset();

@@ -327,8 +327,18 @@ img.lazy-img{opacity:0;transition:opacity .5s ease}
 img.lazy-img.loaded{opacity:1}
 
 /* ===== sticky mobile buy bar ===== */
-.sticky-mobile{position:fixed;left:0;right:0;bottom:0;z-index:95;display:none;align-items:center;gap:12px;padding:10px 14px calc(10px + env(safe-area-inset-bottom));background:rgba(8,11,20,.94);backdrop-filter:blur(14px);border-top:1px solid rgba(255,255,255,.1);transform:translateY(120%);transition:transform .35s ease}
+.sticky-mobile{position:fixed;left:0;right:0;bottom:0;z-index:95;display:flex;align-items:center;gap:12px;padding:10px 14px calc(10px + env(safe-area-inset-bottom));background:rgba(8,11,20,.94);backdrop-filter:blur(14px);border-top:1px solid rgba(255,255,255,.1);transform:translateY(120%);transition:transform .35s ease}
 .sticky-mobile.show{transform:translateY(0)}
+/* En pantallas grandes centramos el contenido de la barra */
+.sticky-mobile{justify-content:center}
+.sticky-mobile .sm-info{max-width:340px}
+/* Botón de compra animado (siempre llama la atención) */
+.sticky-mobile .sm-cta{display:inline-flex;align-items:center;gap:8px;animation:smPulse 1.8s ease-in-out infinite;will-change:transform}
+.sticky-mobile .sm-cta:hover{animation-play-state:paused}
+.sticky-mobile .sm-cta #smBtnPrice{font-weight:800}
+@keyframes smPulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(59,130,246,.55)}50%{transform:scale(1.06);box-shadow:0 0 0 10px rgba(59,130,246,0)}}
+@media (prefers-reduced-motion:reduce){.sticky-mobile .sm-cta{animation:none}}
+body.has-sticky{padding-bottom:78px}
 .sticky-mobile img{width:46px;height:46px;border-radius:11px;object-fit:cover;flex:none;background:var(--card)}
 .sticky-mobile .sm-info{flex:1;min-width:0}
 .sticky-mobile .sm-name{font:700 13px var(--font-head);color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

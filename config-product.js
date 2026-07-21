@@ -12,7 +12,7 @@ const PRODUCT_CONFIG = {
   logo: "images/logo.png",
 
   // Precios (en guaraníes, sin puntos)
-  price: 140000,
+  price: 119000,
   oldPrice: 199000,
   currency: "PYG",
   metaPixelId: "2412226475899711",
