@@ -16,6 +16,7 @@ const PRODUCT_CONFIG = {
   oldPrice: 199000,
   currency: "PYG",
   metaPixelId: "2412226475899711",
+  whatsapp: "595972738779",            // Contacto WhatsApp VG Shop
 
   // Imágenes — reemplazá estos archivos por tus fotos reales (mismo nombre) en la carpeta images/
   images: {
@@ -71,6 +72,38 @@ const PY_CITIES = [
   "Areguá", "Paraguarí", "Villa Hayes", "Itá", "Guarambaré"
 ];
 
+/* ============================================================
+   ZONAS DE ENTREGA
+   local    → Asunción y Central: pago CONTRA ENTREGA + delivery
+   interior → resto del país: transportadora + PAGO ANTICIPADO
+   Para mover una ciudad de zona, simplemente cambiala de lista.
+   ============================================================ */
+const CITY_ZONES = {
+  local: {
+    label: "Asunción y Central · Pago contra entrega",
+    cities: [
+      "Asunción", "San Lorenzo", "Fernando de la Mora", "Luque", "Lambaré",
+      "Capiatá", "Ñemby", "Villa Elisa", "Mariano Roque Alonso", "Limpio",
+      "Areguá", "Ypané", "Itauguá", "San Antonio", "Guarambaré", "Itá",
+      "Otra ciudad de Central"
+    ]
+  },
+  interior: {
+    label: "Interior del país · Envío por transportadora",
+    cities: [
+      "Ciudad del Este", "Presidente Franco", "Hernandarias", "Encarnación",
+      "Coronel Oviedo", "Caaguazú", "Villarrica", "Pedro Juan Caballero",
+      "Concepción", "Pilar", "Caacupé", "Paraguarí", "Villa Hayes",
+      "Otra ciudad del interior"
+    ]
+  }
+};
+
+// Opciones que piden escribir la ciudad a mano
+const CITY_OTHER_OPTIONS = ["Otra ciudad de Central", "Otra ciudad del interior"];
+
 // Exponer en window (const no se adjunta a window por sí solo)
 window.PRODUCT_CONFIG = PRODUCT_CONFIG;
 window.PY_CITIES = PY_CITIES;
+window.CITY_ZONES = CITY_ZONES;
+window.CITY_OTHER_OPTIONS = CITY_OTHER_OPTIONS;

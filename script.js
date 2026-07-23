@@ -20,8 +20,21 @@
     viewers: rand(CFG.urgency.viewersMin, CFG.urgency.viewersMax),
     offer: CFG.urgency.offerClaimedStart,
     formStarted: false,
-    submitting: false
+    submitting: false,
+    zone: '',            // '' | 'local' | 'interior'
+    orderSaved: false    // evita registros/eventos duplicados
   };
+
+  /* ---------- zonas de entrega ---------- */
+  const ZONES = window.CITY_ZONES || { local: { cities: [] }, interior: { cities: [] } };
+  const OTHER_OPTIONS = window.CITY_OTHER_OPTIONS || [];
+  const isOtherCity = (v) => OTHER_OPTIONS.indexOf(v) !== -1;
+  function zoneOfCity(city) {
+    if (!city) return '';
+    if (ZONES.local.cities.indexOf(city) !== -1) return 'local';
+    if (ZONES.interior.cities.indexOf(city) !== -1) return 'interior';
+    return '';
+  }
 
   /* ---------- feature flags (config + overrides locales) ---------- */
   const FKEY = 'cv_features';
@@ -422,7 +435,8 @@
   }
   function closeCheckout() {
     $('#checkoutModal').classList.remove('show');
-    if (!$('#success').classList.contains('show') && !$('#mapModal').classList.contains('show')) {
+    if (!$('#success').classList.contains('show') && !$('#mapModal').classList.contains('show') &&
+        !$('#reviewModal').classList.contains('show')) {
       document.body.classList.remove('no-scroll');
     }
     if (window.__updateStickyBar) window.__updateStickyBar();
@@ -435,7 +449,8 @@
     $('#checkoutClose').addEventListener('click', closeCheckout);
     $('#checkoutModal').addEventListener('click', (e) => { if (e.target.id === 'checkoutModal') closeCheckout(); });
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && $('#checkoutModal').classList.contains('show') && !$('#mapModal').classList.contains('show')) closeCheckout();
+      if (e.key === 'Escape' && $('#checkoutModal').classList.contains('show') &&
+          !$('#mapModal').classList.contains('show') && !$('#reviewModal').classList.contains('show')) closeCheckout();
     });
   }
 
@@ -458,12 +473,14 @@
     nombre: (v) => v.trim().length >= 3,
     telefono: (v) => isPhone(v),
     ciudad: (v) => v.trim().length >= 3,
+    ciudadOtra: (v) => v.trim().length >= 3,
     direccion: (v) => v.trim().length >= 4
   };
   function validateField(name, force) {
     const wrap = $('.field[data-field="' + name + '"]');
-    if (!wrap) return true;
-    const input = $('input', wrap);
+    if (!wrap || wrap.hidden) return true;
+    const input = $('input, select', wrap);
+    if (!input) return true;
     const val = input.value;
     if (name === 'referencia') return true;
     const ok = VALIDATORS[name] ? VALIDATORS[name](val) : val.trim().length > 0;
@@ -472,14 +489,129 @@
     return ok;
   }
   function initForm() {
-    $$('.field input').forEach((input) => {
+    $$('.field input, .field select').forEach((input) => {
       const name = input.name;
       input.addEventListener('input', () => {
         if (!state.formStarted) { state.formStarted = true; track('form_started'); }
-        if ($('.field[data-field="' + name + '"]').classList.contains('err')) validateField(name);
+        const w = $('.field[data-field="' + name + '"]');
+        if (w && w.classList.contains('err')) validateField(name);
       });
       input.addEventListener('blur', () => { if (input.value) validateField(name); });
     });
+  }
+
+  /* ============================================================
+     SELECTOR DE CIUDAD + ZONA DE ENTREGA
+     ============================================================ */
+  const ZONE_UI = {
+    local: {
+      emoji: '✅',
+      title: '¡Excelente! En tu ciudad podés pagar cuando recibís.',
+      text: 'Tu pedido llega con nuestro delivery y abonás en efectivo al recibirlo.',
+      items: ['Pago contra entrega', 'Delivery disponible', 'Entrega estimada de 24 a 72 horas'],
+      warn: false,
+      btn: 'CONFIRMAR PEDIDO',
+      delivery: 'GRATIS en Asunción y Central',
+      note: '🔒 <b>Tus datos están protegidos.</b> Pagás en efectivo al recibir.'
+    },
+    interior: {
+      emoji: '🚚',
+      title: 'Envíos al interior del país',
+      text: 'Tu pedido será enviado mediante transportadora. Para estas ciudades trabajamos con pago anticipado antes del despacho.',
+      items: [
+        'Envío mediante transportadora',
+        'Pago anticipado',
+        'El costo del envío puede variar según la ciudad',
+        'El vendedor se comunicará para confirmar todos los detalles'
+      ],
+      warn: true,
+      btn: 'REVISAR Y CONFIRMAR DATOS',
+      delivery: 'Transportadora (costo a confirmar)',
+      note: '🔒 <b>Tus datos están protegidos.</b> Te contactamos antes de cualquier pago.'
+    }
+  };
+
+  const interiorCitiesTracked = {};
+
+  function selectedCity() {
+    const sel = $('#ciudadSelect');
+    if (!sel) return '';
+    const v = sel.value;
+    if (!v) return '';
+    if (isOtherCity(v)) {
+      const otra = ($('input[name="ciudadOtra"]') || {}).value || '';
+      return otra.trim();
+    }
+    return v;
+  }
+
+  function paintZoneUI() {
+    const box = $('#zoneBox');
+    const lbl = $('#openConfirmLbl');
+    const delivery = $('#sumDelivery');
+    const note = $('#secureNote');
+    if (!state.zone) {
+      box.hidden = true;
+      lbl.textContent = 'CONFIRMAR PEDIDO';
+      delivery.textContent = ZONE_UI.local.delivery;
+      delivery.classList.add('free');
+      note.innerHTML = ZONE_UI.local.note;
+      return;
+    }
+    const ui = ZONE_UI[state.zone];
+    box.hidden = false;
+    box.classList.toggle('warn', ui.warn);
+    $('#zoneEmoji').textContent = ui.emoji;
+    $('#zoneTitle').textContent = ui.title;
+    $('#zoneText').textContent = ui.text;
+    $('#zoneList').innerHTML = ui.items.map((t) => '<li>' + t + '</li>').join('');
+    lbl.textContent = ui.btn;
+    delivery.textContent = ui.delivery;
+    delivery.classList.toggle('free', !ui.warn);
+    note.innerHTML = ui.note;
+  }
+
+  function onCityChange() {
+    const sel = $('#ciudadSelect');
+    const wrapOtra = $('#ciudadOtraWrap');
+    const raw = sel.value;
+    const other = isOtherCity(raw);
+    wrapOtra.hidden = !other;
+    if (!other) {
+      const inp = $('input[name="ciudadOtra"]');
+      if (inp) inp.value = '';
+      wrapOtra.classList.remove('ok', 'err');
+    }
+    state.zone = zoneOfCity(raw);
+    paintZoneUI();
+    if (state.zone === 'interior') {
+      const city = raw;
+      if (!interiorCitiesTracked[city]) {
+        interiorCitiesTracked[city] = true;
+        track('interior_city_selected', { city: city });
+      }
+    }
+  }
+
+  function initCitySelect() {
+    const sel = $('#ciudadSelect');
+    if (!sel) return;
+    ['local', 'interior'].forEach((key) => {
+      const grp = document.createElement('optgroup');
+      grp.label = ZONES[key].label || key;
+      ZONES[key].cities.forEach((c) => {
+        const o = document.createElement('option');
+        o.value = c; o.textContent = c;
+        grp.appendChild(o);
+      });
+      sel.appendChild(grp);
+    });
+    sel.addEventListener('change', () => {
+      if (!state.formStarted) { state.formStarted = true; track('form_started'); }
+      validateField('ciudad');
+      onCityChange();
+    });
+    paintZoneUI();
   }
 
   /* ---------- selector de ubicación en el mapa (estilo Bolso, con Leaflet) ---------- */
@@ -557,7 +689,7 @@
     return {
       nombre: g('nombre').trim(),
       telefono: g('telefono').trim(),
-      ciudad: g('ciudad').trim(),
+      ciudad: selectedCity(),
       direccion: g('direccion').trim(),
       referencia: g('referencia').trim(),
       map: g('map').trim()
@@ -565,13 +697,15 @@
   }
 
   function validateAll() {
-    const fields = ['nombre', 'telefono', 'ciudad', 'direccion'];
+    const fields = ['nombre', 'telefono', 'ciudad', 'ciudadOtra', 'direccion'];
     let firstBad = null;
     fields.forEach((f) => { if (!validateField(f, true) && !firstBad) firstBad = f; });
     if (firstBad) {
-      const el = $('.field[data-field="' + firstBad + '"] input');
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      setTimeout(() => el.focus({ preventScroll: true }), 300);
+      const el = $('.field[data-field="' + firstBad + '"] input, .field[data-field="' + firstBad + '"] select');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => el.focus({ preventScroll: true }), 300);
+      }
     }
     return !firstBad;
   }
@@ -580,7 +714,11 @@
   function orderNumber() {
     return '#PY' + Date.now().toString().slice(-6) + rand(10, 99);
   }
-  async function saveOrder(order) {
+  // Campos nuevos de zona/pago. Si la tabla todavía no los tiene, se reintenta sin ellos
+  // para no perder el pedido (los datos igual viajan dentro de "referencia").
+  const ZONE_COLUMNS = ['tipo_entrega', 'tipo_pago', 'zona_cliente', 'datos_confirmados'];
+
+  async function postOrder(order) {
     const r = await fetch(CFG.supabaseUrl + '/rest/v1/' + CFG.supabaseTable, {
       method: 'POST',
       headers: {
@@ -594,23 +732,34 @@
     if (!r.ok) throw new Error(await r.text().catch(() => 'error'));
   }
 
-  // Al tocar "CONFIRMAR PEDIDO": valida, guarda el pedido y muestra el resumen final.
-  async function confirmAndSubmit() {
-    if (state.submitting) return;
-    if (!validateAll()) {
-      toast('Completá nombre, teléfono, ciudad y dirección');
-      return;
+  async function saveOrder(order) {
+    try {
+      await postOrder(order);
+    } catch (e) {
+      const msg = String(e && e.message || '');
+      const schemaIssue = ZONE_COLUMNS.some((c) => msg.indexOf(c) !== -1) ||
+        /PGRST204|schema cache|column/i.test(msg);
+      if (!schemaIssue) throw e;
+      console.warn('[pedido] columnas de zona no disponibles, reintentando sin ellas');
+      const fallback = Object.assign({}, order);
+      ZONE_COLUMNS.forEach((c) => { delete fallback[c]; });
+      await postOrder(fallback);
     }
+  }
+
+  /* ---------- armado del pedido ---------- */
+  function buildOrder() {
     const data = collectForm();
-    const btn = $('#openConfirm');
     const total = CFG.price * state.qty;
-    const id = orderNumber();
+    const interior = state.zone === 'interior';
     const refParts = ['Cantidad: ' + state.qty];
     if (data.referencia) refParts.push('Referencia: ' + data.referencia);
-    refParts.push('Pago contra entrega');
+    refParts.push(interior ? 'ENVÍO AL INTERIOR — transportadora' : 'Delivery Asunción/Central');
+    refParts.push(interior ? 'PAGO ANTICIPADO antes del despacho' : 'Pago contra entrega');
+    refParts.push('Datos confirmados por el cliente');
 
-    const order = {
-      id: id,
+    return {
+      id: orderNumber(),
       producto: CFG.name,
       precio: CFG.price,
       cantidad: state.qty,
@@ -627,45 +776,165 @@
       ubicacion_maps: data.map || 'No informado',
       estado: 'Pendiente',
       origen: CFG.origin,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      // ---- campos de zona / condición de pago ----
+      tipo_entrega: interior ? 'transportadora' : 'delivery',
+      tipo_pago: interior ? 'pago_anticipado' : 'contra_entrega',
+      zona_cliente: interior ? 'interior' : 'asuncion_central',
+      datos_confirmados: true
     };
+  }
+
+  /* ---------- botón principal del checkout ---------- */
+  function onMainAction() {
+    if (state.submitting) return;
+    if (!validateAll()) {
+      toast('Revisá los datos marcados en rojo');
+      return;
+    }
+    if (state.zone === 'interior') {
+      openReviewModal();
+      return;
+    }
+    submitOrder($('#openConfirm'));
+  }
+
+  /* ---------- modal de revisión (interior) ---------- */
+  function openReviewModal() {
+    const data = collectForm();
+    const total = CFG.price * state.qty;
+    const rows = [
+      ['Nombre y apellido', data.nombre],
+      ['Teléfono', data.telefono],
+      ['Ciudad', data.ciudad],
+      ['Dirección', data.direccion],
+      ['Referencia', data.referencia || 'Sin referencia'],
+      ['Producto', CFG.name],
+      ['Cantidad', String(state.qty)],
+      ['Precio unitario', fmt(CFG.price)],
+      ['Total del producto', fmt(total)],
+      ['Forma de entrega', 'Envío por transportadora'],
+      ['Condición de pago', 'Pago anticipado antes del envío', true]
+    ];
+    $('#reviewData').innerHTML = rows.map((r) => (
+      '<div class="review-line"><span class="k">' + r[0] + '</span>' +
+      '<span class="v' + (r[2] ? ' hi' : '') + '">' + esc(r[1]) + '</span></div>'
+    )).join('');
+    const m = $('#reviewModal');
+    m.classList.add('show');
+    m.scrollTop = 0;
+    document.body.classList.add('no-scroll');
+    track('interior_checkout_review', { city: data.ciudad });
+  }
+  function closeReviewModal() {
+    $('#reviewModal').classList.remove('show');
+    if (!$('#checkoutModal').classList.contains('show')) document.body.classList.remove('no-scroll');
+  }
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  }
+
+  /* ---------- guardado del pedido (paso final, común a las dos zonas) ---------- */
+  async function submitOrder(btn) {
+    if (state.submitting || state.orderSaved) return;
+    const interior = state.zone === 'interior';
+    const order = buildOrder();
+    const lbl = $('.lbl', btn);
+    const prevLbl = lbl ? lbl.textContent : '';
 
     track('form_submitted');
     state.submitting = true;
-    btn.classList.add('loading');
     btn.disabled = true;
+    btn.classList.add('loading', 'with-label');
+    if (lbl) lbl.textContent = 'Procesando pedido...';
+
     try {
       await saveOrder(order);
     } catch (e) {
       console.error(e);
       state.submitting = false;
-      btn.classList.remove('loading');
       btn.disabled = false;
-      toast('No se pudo enviar el pedido. Revisá tu conexión e intentá de nuevo.');
-      return;
+      btn.classList.remove('loading', 'with-label');
+      if (lbl) lbl.textContent = prevLbl;
+      toast('No pudimos registrar tu pedido. Revisá tu conexión e intentá nuevamente.');
+      return; // los datos del formulario se conservan
     }
+
     state.submitting = false;
-    btn.classList.remove('loading');
+    state.orderSaved = true;
     btn.disabled = false;
+    btn.classList.remove('loading', 'with-label');
+    if (lbl) lbl.textContent = prevLbl;
+
+    closeReviewModal();
     $('#checkoutModal').classList.remove('show');
-    showSuccess(order);
-    track('purchase', { transaction_id: id, value: total, quantity: state.qty });
+    showSuccess(order, interior);
+
+    track(interior ? 'interior_order_confirmed' : 'local_order_confirmed', { city: order.ciudad });
+    track('purchase', { transaction_id: order.id, value: order.subtotal, quantity: order.cantidad });
   }
 
   /* ---------- pantalla de éxito ---------- */
-  function showSuccess(order) {
+  function waLink(order) {
+    const num = (CFG.whatsapp || '').replace(/\D/g, '');
+    if (!num) return '';
+    const msg = 'Hola, acabo de registrar un pedido para envío al interior. Mi nombre es ' +
+      order.nombre + ', mi ciudad es ' + order.ciudad + ' y mi teléfono es ' + order.telefono + '.';
+    return 'https://wa.me/' + num + '?text=' + encodeURIComponent(msg);
+  }
+
+  function showSuccess(order, interior) {
     $('#successOrderNum').textContent = order.id;
     $('#successQty').textContent = order.cantidad;
     $('#successTotal').textContent = fmt(order.subtotal);
     $('#successPhone').textContent = order.telefono;
+
+    const del = $('#successDelivery');
+    const wa = $('#successWa');
+    if (interior) {
+      $('#successTitle').textContent = '¡Datos recibidos correctamente!';
+      $('#successLead').textContent = 'Nos comunicaremos contigo para confirmar la disponibilidad, el costo del envío y los datos para realizar el pago antes del despacho.';
+      del.textContent = 'Transportadora · costo a confirmar';
+      del.style.color = 'var(--gold)';
+      $('#successTotalKey').textContent = 'Total del producto';
+      $('#successEtaEm').textContent = '💳';
+      $('#successEtaTitle').textContent = 'Pago anticipado antes del envío';
+      $('#successEtaText').textContent = 'Te pasamos los datos de pago y despachamos apenas se confirme.';
+      $('#successNote').innerHTML = '📞 Te vamos a <b>contactar por WhatsApp o llamada</b> al número que ingresaste para confirmar el pedido, el <b>costo del envío</b> y los datos de pago.';
+      const link = waLink(order);
+      if (link) { wa.href = link; wa.hidden = false; } else { wa.hidden = true; }
+      $('#backHome').textContent = 'Volver a la tienda';
+    } else {
+      $('#successTitle').textContent = '¡Pedido recibido correctamente!';
+      $('#successLead').textContent = 'Gracias por tu compra. Ya registramos tu pedido y un asesor lo confirmará en breve.';
+      del.textContent = 'GRATIS en Asunción y Central';
+      del.style.color = 'var(--green)';
+      $('#successTotalKey').textContent = 'Total a pagar';
+      $('#successEtaEm').textContent = '🚚';
+      $('#successEtaTitle').textContent = 'Tiempo estimado de entrega';
+      $('#successEtaText').textContent = 'Entre 24 y 72 horas hábiles.';
+      $('#successNote').innerHTML = '📞 Un asesor te va a <b>contactar por WhatsApp</b> al número que ingresaste para <b>confirmar tu pedido</b> y coordinar la entrega. No necesitás hacer nada más.';
+      wa.hidden = true;
+      $('#backHome').textContent = 'Volver al inicio';
+    }
+
     const s = $('#success');
     s.classList.add('show');
     s.scrollTop = 0;
     document.body.classList.add('no-scroll');
     if (window.__updateStickyBar) window.__updateStickyBar();
   }
+
   function initConfirmFlow() {
-    $('#openConfirm').addEventListener('click', confirmAndSubmit);
+    $('#openConfirm').addEventListener('click', onMainAction);
+    $('#reviewConfirm').addEventListener('click', () => submitOrder($('#reviewConfirm')));
+    $('#reviewEdit').addEventListener('click', closeReviewModal);   // no borra nada del formulario
+    $('#reviewClose').addEventListener('click', closeReviewModal);
+    $('#reviewModal').addEventListener('click', (e) => { if (e.target.id === 'reviewModal') closeReviewModal(); });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && $('#reviewModal').classList.contains('show')) closeReviewModal();
+    });
+
     $('#backHome').addEventListener('click', () => {
       $('#success').classList.remove('show');
       document.body.classList.remove('no-scroll');
@@ -676,8 +945,14 @@
       const mi = $('#mapsInput'); if (mi) mi.value = '';
       selectedMapLink = '';
       $$('.field').forEach((f) => f.classList.remove('ok', 'err'));
+      $('#ciudadOtraWrap').hidden = true;
       state.qty = 1; updateSummary();
       state.formStarted = false;
+      state.zone = '';
+      state.orderSaved = false;
+      // permitir el tracking de un nuevo pedido si vuelve a comprar
+      Object.keys(firedOnce).forEach((k) => { delete firedOnce[k]; });
+      paintZoneUI();
     });
   }
 
@@ -724,8 +999,18 @@
   /* ============================================================
      ANALYTICS — eventos para dataLayer / gtag + scroll depth
      ============================================================ */
+  // Eventos propios del flujo por zona (se envían como custom a Meta/GA)
+  const CUSTOM_EVENTS = ['interior_city_selected', 'interior_checkout_review', 'interior_order_confirmed', 'local_order_confirmed'];
+  const ONCE_EVENTS = ['purchase', 'interior_order_confirmed', 'local_order_confirmed'];
+  const firedOnce = {};
+
   function track(event, params) {
     params = params || {};
+    // no duplicar eventos de conversión si el cliente presiona varias veces
+    if (ONCE_EVENTS.indexOf(event) !== -1) {
+      if (firedOnce[event]) return;
+      firedOnce[event] = true;
+    }
     const payload = Object.assign({
       event: event,
       product: CFG.name,
@@ -764,6 +1049,9 @@
         } else {
           window.fbq('track', 'Purchase', metaParams);
         }
+      } else if (CUSTOM_EVENTS.indexOf(event) !== -1) {
+        // eventos propios del flujo por zona
+        window.fbq('trackCustom', event, Object.assign({ city: params.city || '' }, metaParams));
       }
     }
     
@@ -847,6 +1135,7 @@
     initScrollUI();
     initCTAs();
     initForm();
+    initCitySelect();
     initMapPicker();
     initConfirmFlow();
     initConfigPanel();

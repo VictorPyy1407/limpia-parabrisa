@@ -413,10 +413,17 @@
           <span class="tick">✓</span>
           <div class="field-msg">Ingresá un teléfono válido (ej: 0981 123 456).</div>
         </div>
-        <div class="field" data-field="ciudad">
-          <input name="ciudad" placeholder="Ciudad" autocomplete="address-level2" aria-label="Ciudad">
+        <div class="field field-select" data-field="ciudad">
+          <select name="ciudad" id="ciudadSelect" autocomplete="address-level2" aria-label="Ciudad">
+            <option value="">Seleccioná tu ciudad</option>
+          </select>
           <span class="tick">✓</span>
-          <div class="field-msg">Indicá tu ciudad.</div>
+          <div class="field-msg">Seleccioná tu ciudad.</div>
+        </div>
+        <div class="field" data-field="ciudadOtra" id="ciudadOtraWrap" hidden>
+          <input name="ciudadOtra" placeholder="Escribí tu ciudad" autocomplete="address-level2" aria-label="Escribí tu ciudad">
+          <span class="tick">✓</span>
+          <div class="field-msg">Escribí el nombre de tu ciudad.</div>
         </div>
         <div class="field" data-field="direccion">
           <input name="direccion" placeholder="Dirección" autocomplete="street-address" aria-label="Dirección">
@@ -434,18 +441,50 @@
       </div>
     </form>
 
+    <!-- Bloque informativo según la zona elegida (se muestra al elegir ciudad) -->
+    <div class="zone-box" id="zoneBox" hidden>
+      <div class="zone-head"><span class="zone-em" id="zoneEmoji">✅</span><div class="zone-title" id="zoneTitle"></div></div>
+      <p class="zone-text" id="zoneText"></p>
+      <ul class="zone-list" id="zoneList"></ul>
+    </div>
+
     <div class="summary-lines checkout-lines">
       <div class="checkout-lines-title">🧾 Resumen del pedido</div>
       <div class="srow"><span class="k">Limpiador de Parabrisas ×<span id="sumQty">1</span></span><span class="v" id="sumUnit">Gs. 119.000</span></div>
-      <div class="srow"><span class="k">Delivery</span><span class="free">GRATIS en Asunción y Central</span></div>
+      <div class="srow"><span class="k" id="sumDeliveryKey">Delivery</span><span class="free" id="sumDelivery">GRATIS en Asunción y Central</span></div>
       <div class="sdiv"></div>
       <div class="srow total"><span class="k">Total a pagar</span><span class="v" id="sumTotal">Gs. 119.000</span></div>
     </div>
 
     <button class="btn btn-confirm btn-block" id="openConfirm" type="button" style="border-radius:14px;padding:17px;font-size:16px">
-      <span class="spinner"></span><span class="lbl">CONFIRMAR PEDIDO</span>
+      <span class="spinner"></span><span class="lbl" id="openConfirmLbl">CONFIRMAR PEDIDO</span>
     </button>
-    <div class="secure-note">🔒 <b>Tus datos están protegidos.</b> Pagás en efectivo al recibir.</div>
+    <div class="secure-note" id="secureNote">🔒 <b>Tus datos están protegidos.</b> Pagás en efectivo al recibir.</div>
+  </div>
+</div>
+
+<!-- ===== REVIEW MODAL (confirmación de datos · envíos al interior) ===== -->
+<div class="overlay review-overlay" id="reviewModal" role="dialog" aria-modal="true" aria-labelledby="reviewTitle">
+  <div class="modal review">
+    <button class="cp-close" id="reviewClose" type="button" aria-label="Cerrar">✕</button>
+    <div class="checkout-head">
+      <h3 id="reviewTitle">📋 Revisá tus datos</h3>
+      <p class="sub">Confirmá que todo esté correcto antes de registrar tu pedido.</p>
+    </div>
+
+    <div class="review-card" id="reviewData"></div>
+
+    <div class="zone-box warn" id="reviewPayBox">
+      <div class="zone-head"><span class="zone-em">💳</span><div class="zone-title">Pago anticipado antes del envío</div></div>
+      <p class="zone-text">Revisá cuidadosamente tus datos. Nos comunicaremos contigo por WhatsApp o llamada para confirmar el pedido, el costo de envío y los datos de pago.</p>
+    </div>
+
+    <div class="review-actions">
+      <button class="btn btn-ghost" id="reviewEdit" type="button">Editar mis datos</button>
+      <button class="btn btn-confirm" id="reviewConfirm" type="button">
+        <span class="spinner"></span><span class="lbl">Sí, confirmar mis datos</span>
+      </button>
+    </div>
   </div>
 </div>
 
@@ -453,25 +492,26 @@
 <div class="success" id="success" role="dialog" aria-modal="true" aria-label="Pedido confirmado">
   <div class="success-inner">
     <div class="success-check"><div class="ring">✓</div></div>
-    <h2>¡Pedido recibido correctamente!</h2>
-    <p class="lead">Gracias por tu compra. Ya registramos tu pedido y un asesor lo confirmará en breve.</p>
+    <h2 id="successTitle">¡Pedido recibido correctamente!</h2>
+    <p class="lead" id="successLead">Gracias por tu compra. Ya registramos tu pedido y un asesor lo confirmará en breve.</p>
 
     <div class="success-card">
       <div class="sc-title">Resumen del pedido <span class="order-pill" id="successOrderNum">#PY000000</span></div>
       <div class="review-line"><span class="k">Producto</span><span class="v">Limpiador de Parabrisas</span></div>
       <div class="review-line"><span class="k">Cantidad</span><span class="v" id="successQty">1</span></div>
-      <div class="review-line"><span class="k">Entrega</span><span class="v" style="color:var(--green)">GRATIS en Asunción y Central</span></div>
-      <div class="review-line"><span class="k">Total a pagar</span><span class="v" id="successTotal">Gs. 119.000</span></div>
+      <div class="review-line"><span class="k">Entrega</span><span class="v" id="successDelivery" style="color:var(--green)">GRATIS en Asunción y Central</span></div>
+      <div class="review-line"><span class="k" id="successTotalKey">Total a pagar</span><span class="v" id="successTotal">Gs. 119.000</span></div>
       <div class="review-line" style="border:none"><span class="k">Contacto</span><span class="v" id="successPhone">---</span></div>
     </div>
 
-    <div class="success-eta">
-      <span class="em">🚚</span>
-      <div><div class="t">Tiempo estimado de entrega</div><div class="d">Entre 24 y 48 horas hábiles.</div></div>
+    <div class="success-eta" id="successEta">
+      <span class="em" id="successEtaEm">🚚</span>
+      <div><div class="t" id="successEtaTitle">Tiempo estimado de entrega</div><div class="d" id="successEtaText">Entre 24 y 48 horas hábiles.</div></div>
     </div>
 
-    <p class="success-note">📞 Un asesor te va a <b>contactar por WhatsApp</b> al número que ingresaste para <b>confirmar tu pedido</b> y coordinar la entrega. No necesitás hacer nada más.</p>
+    <p class="success-note" id="successNote">📞 Un asesor te va a <b>contactar por WhatsApp</b> al número que ingresaste para <b>confirmar tu pedido</b> y coordinar la entrega. No necesitás hacer nada más.</p>
 
+    <a class="btn btn-wa big" id="successWa" href="#" target="_blank" rel="noopener" hidden>💬 Contactar por WhatsApp</a>
     <button class="btn btn-cta big" id="backHome" type="button" style="animation:none">Volver al inicio</button>
   </div>
 </div>

@@ -401,6 +401,64 @@ body.has-sticky{padding-bottom:78px}
 .checkout-lines-title{font:700 14px var(--font-head);color:#fff;margin-bottom:12px}
 .modal.checkout .btn-confirm{margin-top:4px}
 
+/* ===== selector de ciudad ===== */
+.field-select{position:relative}
+.field-select select{
+  width:100%;padding:14px 40px 14px 16px;border-radius:12px;background:var(--card);
+  border:1px solid rgba(255,255,255,.12);color:#fff;font-size:16px;outline:none;
+  appearance:none;-webkit-appearance:none;cursor:pointer;transition:border-color .2s
+}
+.field-select select:focus{border-color:rgba(110,168,255,.6)}
+.field-select.ok select{border-color:rgba(37,211,102,.55)}
+.field-select.err select{border-color:rgba(224,31,38,.7)}
+.field-select::after{
+  content:'▾';position:absolute;right:15px;top:23px;transform:translateY(-50%);
+  color:var(--muted);font-size:14px;pointer-events:none
+}
+.field-select.ok .tick{opacity:0}
+.field-select select option{background:#0b1220;color:#fff}
+.field-select select optgroup{background:#0b1220;color:var(--muted);font-style:normal;font-weight:700}
+
+/* ===== bloque informativo de zona ===== */
+.zone-box{
+  margin:14px 0 2px;padding:16px 18px;border-radius:16px;
+  background:rgba(37,211,102,.07);border:1px solid rgba(37,211,102,.26);
+  box-shadow:0 10px 26px rgba(0,0,0,.22);animation:popIn .28s cubic-bezier(.16,1,.3,1)
+}
+.zone-box.warn{background:rgba(255,176,32,.08);border-color:rgba(255,176,32,.32)}
+.zone-head{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.zone-em{font-size:20px;line-height:1}
+.zone-title{font:800 14.5px var(--font-head);color:#fff}
+.zone-text{font:400 13px/1.6 var(--font-body);color:var(--muted-2);margin:0}
+.zone-list{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:7px}
+.zone-list li{font:500 13px/1.4 var(--font-body);color:#d7dfec;display:flex;align-items:flex-start;gap:8px}
+.zone-list li::before{content:'✓';color:var(--green);font-weight:800;flex:none;line-height:1.35}
+.zone-box.warn .zone-list li::before{content:'•';color:var(--gold);font-size:16px;line-height:1.1}
+
+/* ===== modal de revisión (interior) ===== */
+.overlay.review-overlay{z-index:260;align-items:flex-start;overflow-y:auto;padding:18px}
+.modal.review{max-width:480px;margin:auto;padding:24px;position:relative}
+.review-card{
+  border-radius:16px;background:var(--panel);border:1px solid var(--panel-line);
+  padding:16px 18px;margin-bottom:14px
+}
+.review-card .review-line:last-child{border-bottom:none}
+.review-card .review-line .v.hi{color:var(--gold)}
+.review-actions{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}
+.review-actions .btn-ghost{flex:1 1 150px}
+.review-actions .btn-confirm{flex:2 1 200px}
+.btn-wa{
+  display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
+  padding:15px;border-radius:14px;margin-bottom:10px;border:none;cursor:pointer;
+  background:linear-gradient(135deg,#25d366,#1aa34a);color:#fff;font:800 15px var(--font-head)
+}
+.btn-wa:hover{filter:brightness(1.05);color:#fff}
+@media (max-width:480px){
+  .modal.review{padding:18px}
+  .review-actions{flex-direction:column-reverse}
+  .review-actions .btn-ghost,.review-actions .btn-confirm{flex:1 1 auto;width:100%}
+}
+
 /* ===== botón de ubicación (estilo Bolso) ===== */
 .location-row{display:flex;gap:8px;align-items:stretch}
 .location-row #mapsInput{flex:1;min-width:0;padding:14px 16px;border-radius:12px;background:var(--card);border:1px solid rgba(255,255,255,.12);color:#fff;font-size:14px;outline:none}
@@ -451,6 +509,7 @@ body.has-sticky{padding-bottom:78px}
 .spinner{width:18px;height:18px;border-radius:50%;border:2.5px solid rgba(255,255,255,.35);border-top-color:#fff;animation:spin .7s linear infinite;display:none}
 .btn-confirm.loading .spinner{display:inline-block}
 .btn-confirm.loading .lbl{display:none}
+.btn-confirm.loading.with-label .lbl{display:inline}
 
 /* ===== success screen ===== */
 .success{position:fixed;inset:0;z-index:400;background:linear-gradient(180deg,#070d1a,#05070d);display:none;overflow-y:auto}
