@@ -508,7 +508,7 @@
       emoji: '✅',
       title: '¡Excelente! En tu ciudad podés pagar cuando recibís.',
       text: 'Tu pedido llega con nuestro delivery y abonás en efectivo al recibirlo.',
-      items: ['Pago contra entrega', 'Delivery disponible', 'Entrega estimada de 48 a 72 horas'],
+      items: ['Pago contra entrega', 'Delivery disponible', 'Entrega estimada de 24 a 72 horas'],
       warn: false,
       btn: 'CONFIRMAR PEDIDO',
       delivery: 'GRATIS en Asunción y Central',
@@ -517,41 +517,21 @@
     interior: {
       emoji: '🚚',
       title: 'Envíos al interior del país',
-      text: 'Tu pedido será enviado mediante transportadora y pagás cuando lo recibís.',
+      text: 'Tu pedido será enviado mediante transportadora. Para estas ciudades trabajamos con pago anticipado antes del despacho.',
       items: [
         'Envío mediante transportadora',
-        'Pago al recibir',
+        'Pago anticipado',
         'El costo del envío puede variar según la ciudad',
         'El vendedor se comunicará para confirmar todos los detalles'
       ],
       warn: true,
       btn: 'REVISAR Y CONFIRMAR DATOS',
       delivery: 'Transportadora (costo a confirmar)',
-      note: '🔒 <b>Tus datos están protegidos.</b> Pagás cuando recibís.'
+      note: '🔒 <b>Tus datos están protegidos.</b> Te contactamos antes de cualquier pago.'
     }
   };
 
   const interiorCitiesTracked = {};
-
-  function hasAltoParanaDelivery(city) {
-    return (window.ALTO_PARANA_DELIVERY_CITIES || []).indexOf(city) !== -1;
-  }
-
-  function zoneUiForCity(zone, city) {
-    const ui = ZONE_UI[zone];
-    if (zone !== 'interior' || !hasAltoParanaDelivery(city)) return ui;
-    return Object.assign({}, ui, {
-      title: '¡Delivery disponible en tu ciudad!',
-      text: 'En Alto Paraná contamos con delivery en el día.',
-      items: [
-        'Delivery en el día',
-        'Pago al recibir',
-        'El costo del envío puede variar según la ciudad',
-        'El vendedor se comunicará para confirmar todos los detalles'
-      ],
-      delivery: 'Delivery en el día'
-    });
-  }
 
   function selectedCity() {
     const sel = $('#ciudadSelect');
@@ -578,7 +558,7 @@
       note.innerHTML = ZONE_UI.local.note;
       return;
     }
-    const ui = zoneUiForCity(state.zone, selectedCity());
+    const ui = ZONE_UI[state.zone];
     box.hidden = false;
     box.classList.toggle('warn', ui.warn);
     $('#zoneEmoji').textContent = ui.emoji;
@@ -616,27 +596,10 @@
   function initCitySelect() {
     const sel = $('#ciudadSelect');
     if (!sel) return;
-
-    const altoParana = window.ALTO_PARANA_DELIVERY_CITIES || [];
-    const groups = [
-      {
-        label: 'Alto Paraná · Delivery en el día',
-        cities: altoParana
-      },
-      {
-        label: ZONES.interior.label || 'Interior del país',
-        cities: ZONES.interior.cities.filter((city) => altoParana.indexOf(city) === -1)
-      },
-      {
-        label: 'Asunción y Central · Entrega de 48 a 72 horas',
-        cities: ZONES.local.cities
-      }
-    ];
-
-    groups.forEach((group) => {
+    ['local', 'interior'].forEach((key) => {
       const grp = document.createElement('optgroup');
-      grp.label = group.label;
-      group.cities.forEach((c) => {
+      grp.label = ZONES[key].label || key;
+      ZONES[key].cities.forEach((c) => {
         const o = document.createElement('option');
         o.value = c; o.textContent = c;
         grp.appendChild(o);
@@ -789,13 +752,10 @@
     const data = collectForm();
     const total = CFG.price * state.qty;
     const interior = state.zone === 'interior';
-    const altoParanaDelivery = hasAltoParanaDelivery(data.ciudad);
     const refParts = ['Cantidad: ' + state.qty];
     if (data.referencia) refParts.push('Referencia: ' + data.referencia);
-    refParts.push(altoParanaDelivery ? 'Delivery Alto Paraná' : (interior ? 'ENVÍO AL INTERIOR — transportadora' : 'Delivery Asunción/Central'));
-    refParts.push('Pago contra entrega');
-    if (altoParanaDelivery) refParts.push('Entrega estimada: en el día');
-    else if (!interior) refParts.push('Entrega estimada: 48 a 72 horas');
+    refParts.push(interior ? 'ENVÍO AL INTERIOR — transportadora' : 'Delivery Asunción/Central');
+    refParts.push(interior ? 'PAGO ANTICIPADO antes del despacho' : 'Pago contra entrega');
     refParts.push('Datos confirmados por el cliente');
 
     return {
@@ -818,8 +778,8 @@
       origen: CFG.origin,
       created_at: new Date().toISOString(),
       // ---- campos de zona / condición de pago ----
-      tipo_entrega: interior && !altoParanaDelivery ? 'transportadora' : 'delivery',
-      tipo_pago: 'contra_entrega',
+      tipo_entrega: interior ? 'transportadora' : 'delivery',
+      tipo_pago: interior ? 'pago_anticipado' : 'contra_entrega',
       zona_cliente: interior ? 'interior' : 'asuncion_central',
       datos_confirmados: true
     };
@@ -853,9 +813,8 @@
       ['Cantidad', String(state.qty)],
       ['Precio unitario', fmt(CFG.price)],
       ['Total del producto', fmt(total)],
-      ['Forma de entrega', hasAltoParanaDelivery(data.ciudad) ? 'Delivery Alto Paraná' : 'Envío por transportadora'],
-      ...(hasAltoParanaDelivery(data.ciudad) ? [['Entrega estimada', 'En el día']] : []),
-      ['Condición de pago', 'Pago al recibir', true]
+      ['Forma de entrega', 'Envío por transportadora'],
+      ['Condición de pago', 'Pago anticipado antes del envío', true]
     ];
     $('#reviewData').innerHTML = rows.map((r) => (
       '<div class="review-line"><span class="k">' + r[0] + '</span>' +
@@ -934,20 +893,14 @@
     const wa = $('#successWa');
     if (interior) {
       $('#successTitle').textContent = '¡Datos recibidos correctamente!';
-      $('#successLead').textContent = 'Nos comunicaremos contigo para confirmar la disponibilidad y el costo del envío. Pagás cuando recibís tu pedido.';
+      $('#successLead').textContent = 'Nos comunicaremos contigo para confirmar la disponibilidad, el costo del envío y los datos para realizar el pago antes del despacho.';
       del.textContent = 'Transportadora · costo a confirmar';
       del.style.color = 'var(--gold)';
       $('#successTotalKey').textContent = 'Total del producto';
-      $('#successEtaEm').textContent = '💵';
-      $('#successEtaTitle').textContent = 'Pago al recibir';
-      $('#successEtaText').textContent = 'No necesitás pagar nada por adelantado.';
-      if (hasAltoParanaDelivery(order.ciudad)) {
-        del.textContent = 'Delivery en el día';
-        $('#successEtaEm').textContent = '🚚';
-        $('#successEtaTitle').textContent = 'Tiempo estimado de entrega';
-        $('#successEtaText').textContent = 'Tu pedido cuenta con delivery en el día.';
-      }
-      $('#successNote').innerHTML = '📞 Te vamos a <b>contactar por WhatsApp o llamada</b> al número que ingresaste para confirmar el pedido y el <b>costo del envío</b>. <b>Pagás al recibir.</b>';
+      $('#successEtaEm').textContent = '💳';
+      $('#successEtaTitle').textContent = 'Pago anticipado antes del envío';
+      $('#successEtaText').textContent = 'Te pasamos los datos de pago y despachamos apenas se confirme.';
+      $('#successNote').innerHTML = '📞 Te vamos a <b>contactar por WhatsApp o llamada</b> al número que ingresaste para confirmar el pedido, el <b>costo del envío</b> y los datos de pago.';
       const link = waLink(order);
       if (link) { wa.href = link; wa.hidden = false; } else { wa.hidden = true; }
       $('#backHome').textContent = 'Volver a la tienda';
@@ -959,7 +912,7 @@
       $('#successTotalKey').textContent = 'Total a pagar';
       $('#successEtaEm').textContent = '🚚';
       $('#successEtaTitle').textContent = 'Tiempo estimado de entrega';
-      $('#successEtaText').textContent = 'Entre 48 y 72 horas hábiles.';
+      $('#successEtaText').textContent = 'Entre 24 y 72 horas hábiles.';
       $('#successNote').innerHTML = '📞 Un asesor te va a <b>contactar por WhatsApp</b> al número que ingresaste para <b>confirmar tu pedido</b> y coordinar la entrega. No necesitás hacer nada más.';
       wa.hidden = true;
       $('#backHome').textContent = 'Volver al inicio';
